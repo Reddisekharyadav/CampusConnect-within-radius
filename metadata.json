@@ -1,0 +1,8 @@
+{
+  "name": "CampusRadius",
+  "description": "A privacy-first, opt-in social app that shows nearby users within a configurable radius.",
+  "requestFramePermissions": [
+    "geolocation"
+  ],
+  "majorCapabilities": []
+}
