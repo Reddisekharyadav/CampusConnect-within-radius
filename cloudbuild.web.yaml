@@ -1,0 +1,22 @@
+steps:
+  - name: gcr.io/cloud-builders/docker
+    args: ["build", "-t", "${_IMAGE}", "-f", "Dockerfile.web", "."]
+  - name: gcr.io/cloud-builders/docker
+    args: ["push", "${_IMAGE}"]
+  - name: gcr.io/google.com/cloudsdktool/cloud-sdk
+    entrypoint: gcloud
+    args:
+      [
+        "run",
+        "deploy",
+        "${_SERVICE}",
+        "--image",
+        "${_IMAGE}",
+        "--region",
+        "${_REGION}",
+        "--platform",
+        "managed",
+        "--allow-unauthenticated"
+      ]
+images:
+  - "${_IMAGE}"

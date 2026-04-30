@@ -1,0 +1,29 @@
+{
+  "expo": {
+    "name": "CampusRadius",
+    "slug": "campusradius",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "light",
+    "assetBundlePatterns": [
+      "**/*"
+    ],
+    "android": {
+      "package": "com.campusradius.app"
+    },
+    "web": {
+      "bundler": "metro"
+    },
+    "plugins": [
+      [
+        "expo-location",
+        {
+          "locationWhenInUsePermission": "CampusRadius uses your location only to show nearby users."
+        }
+      ]
+    ],
+    "extra": {
+      "apiBaseUrl": "http://192.168.1.100:5000"
+    }
+  }
+}
