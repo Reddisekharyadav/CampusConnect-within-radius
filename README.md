@@ -15,6 +15,8 @@ This repository now contains:
 - No location history (single latest location per user)
 - Auto-hide inactive users by filtering `lastActive` older than 5 minutes
 - No duplicate profiles: backend enforces case-insensitive unique usernames
+- Web map view uses Google Maps Embed API when `VITE_GOOGLE_MAPS_API_KEY` is set
+- Web and mobile chat use OpenRouter free models through the backend `/chat` proxy
 
 ## 1. Web Setup (Vite)
 
@@ -147,6 +149,8 @@ This repository now contains:
    EXPO_PUBLIC_API_BASE_URL=http://192.168.x.x:5000
    ```
 
+   For chat replies, set `OPENROUTER_API_KEY` in `backend/.env` and optionally choose `OPENROUTER_MODEL`.
+
    Both phone and backend must be on the same network.
 
 4. Start app:
@@ -236,6 +240,7 @@ Before deploying web for production, set root `.env` with backend URL:
 
 ```env
 VITE_API_BASE_URL=https://campusradius-backend-xxxxx.a.run.app
+VITE_GOOGLE_MAPS_API_KEY=your_google_maps_embed_api_key
 ```
 
 Rebuild and redeploy web after updating this value.
@@ -246,6 +251,16 @@ In `mobile/.env`, set:
 
 ```env
 EXPO_PUBLIC_API_BASE_URL=https://campusradius-backend-xxxxx.a.run.app
+```
+
+### Backend environment
+
+In `backend/.env`, set:
+
+```env
+MONGODB_URI=your_mongodb_atlas_uri
+OPENROUTER_API_KEY=your_openrouter_key
+OPENROUTER_MODEL=openrouter/free
 ```
 
 ## 6. MongoDB Atlas Notes

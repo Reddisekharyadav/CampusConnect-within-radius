@@ -26,4 +26,9 @@ export const fetchNearbyUsers = async (payload) => {
   return response.data;
 };
 
+export const sendChatMessage = async (payload) => {
+  const response = await api.post("/chat", payload);
+  return response.data;
+};
+
 export default api;

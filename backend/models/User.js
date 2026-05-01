@@ -4,7 +4,12 @@ const userSchema = new mongoose.Schema(
   {
     username: { type: String, required: true, trim: true },
     usernameKey: { type: String, required: true, trim: true },
+    fullName: { type: String, default: "", trim: true },
     bio: { type: String, default: "" },
+    instagram: { type: String, default: "", trim: true },
+    facebook: { type: String, default: "", trim: true },
+    course: { type: String, default: "", trim: true },
+    interests: { type: [String], default: [] },
     isVisible: { type: Boolean, default: false },
     radius: { type: Number, default: 100, min: 10, max: 500 },
     location: {

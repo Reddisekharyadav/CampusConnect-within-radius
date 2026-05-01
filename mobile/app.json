@@ -1,15 +1,24 @@
 {
   "expo": {
+    "owner": "reddisekharmaruganis-organization",
     "name": "CampusRadius",
-    "slug": "campusradius",
+    "slug": "campusconnect",
     "version": "1.0.0",
     "orientation": "portrait",
     "userInterfaceStyle": "light",
+    "backgroundColor": "#eef3ff",
+    "splash": {
+      "backgroundColor": "#eef3ff",
+      "resizeMode": "contain"
+    },
     "assetBundlePatterns": [
       "**/*"
     ],
     "android": {
-      "package": "com.campusradius.app"
+      "package": "com.campusradius.app",
+      "adaptiveIcon": {
+        "backgroundColor": "#eef3ff"
+      }
     },
     "web": {
       "bundler": "metro"
@@ -23,7 +32,10 @@
       ]
     ],
     "extra": {
-      "apiBaseUrl": "http://192.168.1.100:5000"
+      "apiBaseUrl": "http://10.74.178.134:5000",
+      "eas": {
+        "projectId": "4152238d-72c7-4777-b7f8-2070c654268f"
+      }
     }
   }
 }
