@@ -1,0 +1,34 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, minimum-scale=1" />
+    <title>CampusRadius</title>
+    <!--
+      Popup sizing — controls browser extension popup dimensions.
+      Chrome/Firefox resize the popup to match content; setting explicit width
+      here ensures a consistent 400px popup without relying on content reflow.
+      Inline <style> is allowed by MV3 CSP (only script-src is restricted).
+    -->
+    <style>
+      html, body, #root {
+        margin: 0;
+        padding: 0;
+        width: 400px;
+        min-height: 560px;
+        overflow-x: hidden;
+        background: #f7f9ff;
+      }
+    </style>
+    <!--
+      Load the extension build output directly — no iframe needed.
+      Both paths are same-origin (chrome-extension://[id]/...) so
+      they pass the CSP 'self' check without any 'unsafe-inline'.
+    -->
+    <link rel="stylesheet" href="dist/assets/index.css" />
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="dist/assets/index.js"></script>
+  </body>
+</html>

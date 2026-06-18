@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48">
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#1e3a8a"/>
+      <stop offset="100%" style="stop-color:#7c3aed"/>
+    </linearGradient>
+  </defs>
+  <rect width="48" height="48" rx="12" fill="url(#bg)"/>
+  <!-- Location pin -->
+  <circle cx="24" cy="19" r="6" fill="none" stroke="white" stroke-width="2.5"/>
+  <path d="M24 19 L24 33" stroke="white" stroke-width="2.5" stroke-linecap="round"/>
+  <!-- Radar waves -->
+  <circle cx="24" cy="19" r="10" fill="none" stroke="rgba(255,255,255,0.35)" stroke-width="1.8"/>
+  <circle cx="24" cy="19" r="14" fill="none" stroke="rgba(255,255,255,0.18)" stroke-width="1.2"/>
+  <!-- People dots -->
+  <circle cx="14" cy="30" r="2.5" fill="rgba(255,255,255,0.75)"/>
+  <circle cx="34" cy="27" r="2.5" fill="rgba(255,255,255,0.75)"/>
+</svg>

@@ -11,7 +11,40 @@ dotenv.config({ path: path.resolve(__dirname, "..", ".env") });
 const app = express();
 const PORT = process.env.PORT || 5000;
 
-app.use(cors());
+/**
+ * Private Network Access (PNA) header — MUST be set before cors() so it is
+ * included in both preflight (OPTIONS) and regular responses.
+ *
+ * Chrome 104+ enforces the W3C Private Network Access spec: requests from
+ * "public" origins (including chrome-extension://) to "private" networks
+ * (localhost / 127.0.0.1) require the server to explicitly opt-in by
+ * responding with Access-Control-Allow-Private-Network: true.
+ * Without this header Chrome silently blocks the request → AxiosError: Network Error.
+ *
+ * References:
+ *   https://developer.chrome.com/blog/private-network-access-update/
+ *   https://wicg.github.io/private-network-access/
+ */
+app.use((req, res, next) => {
+  res.setHeader("Access-Control-Allow-Private-Network", "true");
+  next();
+});
+
+app.use(
+  cors({
+    origin: "*",
+    methods: ["GET", "HEAD", "PUT", "PATCH", "POST", "DELETE", "OPTIONS"],
+    allowedHeaders: [
+      "Content-Type",
+      "Authorization",
+      // Chrome sends this in PNA preflight requests
+      "Access-Control-Request-Private-Network",
+    ],
+    // Respond to OPTIONS preflights with 204 No Content
+    optionsSuccessStatus: 204,
+  })
+);
+
 app.use(express.json());
 
 const MONGODB_URI = process.env.MONGODB_URI;
@@ -256,7 +289,8 @@ app.post("/chat", async (req, res) => {
 const start = async () => {
   try {
     if (!MONGODB_URI) {
-      console.log("CampusRadius backend running in preview mode with in-memory storage.");
+      console.log("⚠️ MONGODB_URI not found. CampusRadius backend running in preview mode with in-memory storage.");
+      console.log("Mobile data will NOT persist! Set MONGODB_URI to enable persistent database.");
       useMemoryStore = true;
       app.listen(PORT, () => {
         console.log(`CampusRadius backend listening on port ${PORT}`);
@@ -264,16 +298,23 @@ const start = async () => {
       return;
     }
 
-    await mongoose.connect(MONGODB_URI);
+    console.log("Attempting to connect to MongoDB...");
+    await mongoose.connect(MONGODB_URI, {
+      serverSelectionTimeoutMS: 5000,
+      socketTimeoutMS: 45000,
+    });
     useMemoryStore = false;
+    console.log("✅ Successfully connected to MongoDB!");
     app.listen(PORT, () => {
-      console.log(`CampusRadius backend listening on port ${PORT}`);
+      console.log(`✅ CampusRadius backend listening on port ${PORT} with persistent database`);
     });
   } catch (error) {
-    console.warn("MongoDB connection failed, falling back to in-memory preview mode.", error.message);
+    console.error("❌ MongoDB connection failed!");
+    console.error("Error:", error.message);
+    console.log("Falling back to in-memory preview mode (data will NOT persist)");
     useMemoryStore = true;
     app.listen(PORT, () => {
-      console.log(`CampusRadius backend listening on port ${PORT}`);
+      console.log(`CampusRadius backend listening on port ${PORT} (preview mode - in-memory only)`);
     });
   }
 };

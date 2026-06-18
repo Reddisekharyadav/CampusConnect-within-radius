@@ -7,6 +7,9 @@ export interface NearbyUser {
   facebook?: string;
   course?: string;
   interests?: string[];
+  /** Coordinates returned by backend for map display */
+  latitude?: number;
+  longitude?: number;
 }
 
 export interface Coordinates {

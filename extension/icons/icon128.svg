@@ -1,0 +1,27 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128">
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#1e3a8a"/>
+      <stop offset="100%" style="stop-color:#7c3aed"/>
+    </linearGradient>
+    <filter id="glow">
+      <feGaussianBlur stdDeviation="2" result="blur"/>
+      <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+  </defs>
+  <rect width="128" height="128" rx="28" fill="url(#bg)"/>
+  <!-- Radar circles -->
+  <circle cx="64" cy="50" r="38" fill="none" stroke="rgba(255,255,255,0.12)" stroke-width="2"/>
+  <circle cx="64" cy="50" r="28" fill="none" stroke="rgba(255,255,255,0.2)" stroke-width="2"/>
+  <circle cx="64" cy="50" r="18" fill="none" stroke="rgba(255,255,255,0.35)" stroke-width="2"/>
+  <!-- Location pin body -->
+  <circle cx="64" cy="50" r="10" fill="none" stroke="white" stroke-width="4" filter="url(#glow)"/>
+  <circle cx="64" cy="50" r="4" fill="white"/>
+  <!-- Pin drop -->
+  <path d="M64 58 L64 88" stroke="white" stroke-width="5" stroke-linecap="round"/>
+  <!-- People dots -->
+  <circle cx="38" cy="82" r="6" fill="rgba(255,255,255,0.72)"/>
+  <circle cx="90" cy="75" r="6" fill="rgba(255,255,255,0.72)"/>
+  <circle cx="50" cy="96" r="4.5" fill="rgba(255,255,255,0.5)"/>
+  <circle cx="82" cy="94" r="4.5" fill="rgba(255,255,255,0.5)"/>
+</svg>

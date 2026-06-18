@@ -13,6 +13,37 @@ const DEMO_COORDS = {
   longitude: 78.4867,
 };
 
+// ─── localStorage safety wrapper (Safari private mode throws) ──────────────
+function safeLocalStorageGet(key: string): string | null {
+  try {
+    return localStorage.getItem(key);
+  } catch {
+    return null;
+  }
+}
+
+function safeLocalStorageSet(key: string, value: string): void {
+  try {
+    localStorage.setItem(key, value);
+  } catch {
+    // Silently fail in Safari private mode
+  }
+}
+
+// ─── Geolocation error helper ─────────────────────────────────────────────
+function geolocationErrorMessage(error: GeolocationPositionError): string {
+  switch (error.code) {
+    case error.PERMISSION_DENIED:
+      return "Location permission denied. Please allow location access in your browser settings.";
+    case error.POSITION_UNAVAILABLE:
+      return "Location unavailable. Your device could not determine your position.";
+    case error.TIMEOUT:
+      return "Location request timed out. Please check your connection and try again.";
+    default:
+      return "Unable to access location. Please try again.";
+  }
+}
+
 export function useCampusRadiusController() {
   const [screen, setScreen] = useState<Screen>("permission");
   const [username, setUsername] = useState("");
@@ -36,16 +67,28 @@ export function useCampusRadiusController() {
         "Hi, I can help you find nearby users, explain visibility, and summarize the list on the map.",
     },
   ]);
+  // Track document visibility state reactively
+  const [isTabVisible, setIsTabVisible] = useState(
+    typeof document !== "undefined" ? document.visibilityState === "visible" : true
+  );
+
   const intervalRef = useRef<ReturnType<typeof globalThis.setInterval> | null>(null);
   const locationModeRef = useRef<LocationMode>("real");
 
+  // ─── Reactively track tab visibility (fixes Safari sync issue) ─────────
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      setIsTabVisible(document.visibilityState === "visible");
+    };
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+    return () => {
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+    };
+  }, []);
+
   const canSync = useMemo(() => {
-    return (
-      screen === "main" &&
-      document.visibilityState === "visible" &&
-      Boolean(username.trim())
-    );
-  }, [screen, username]);
+    return screen === "main" && isTabVisible && Boolean(username.trim());
+  }, [screen, isTabVisible, username]);
 
   const getCurrentPosition = useCallback(async (): Promise<Coordinates> => {
     if (locationModeRef.current === "demo") {
@@ -60,7 +103,7 @@ export function useCampusRadiusController() {
             longitude: position.coords.longitude,
           });
         },
-        () => reject(new Error("Unable to access location")),
+        (geoError) => reject(new Error(geolocationErrorMessage(geoError))),
         { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
       );
     });
@@ -100,7 +143,11 @@ export function useCampusRadiusController() {
         setNearbyUsers(users);
       } catch (syncError) {
         console.error(syncError);
-        setError("Could not load nearby users. Check backend URL and network.");
+        setError(
+          syncError instanceof Error
+            ? syncError.message
+            : "Could not load nearby users. Check backend URL and network."
+        );
       } finally {
         setLoading(false);
         setRefreshing(false);
@@ -111,7 +158,9 @@ export function useCampusRadiusController() {
 
   const requestPermission = useCallback(async () => {
     if (!navigator.geolocation) {
-      setPermissionMessage("Geolocation is not available in this browser.");
+      setPermissionMessage(
+        "Geolocation is not supported by this browser. Try Chrome, Firefox, or Safari."
+      );
       return;
     }
 
@@ -120,7 +169,7 @@ export function useCampusRadiusController() {
       const current = await getCurrentPosition();
       setCoords(current);
 
-      const savedProfile = localStorage.getItem(PROFILE_KEY);
+      const savedProfile = safeLocalStorageGet(PROFILE_KEY);
       if (savedProfile) {
         const parsed = JSON.parse(savedProfile) as { username: string; bio: string };
         setUsername(parsed.username || "");
@@ -131,7 +180,11 @@ export function useCampusRadiusController() {
       }
     } catch (permissionError) {
       console.error(permissionError);
-      setPermissionMessage("Location permission denied. Please allow location access.");
+      setPermissionMessage(
+        permissionError instanceof Error
+          ? permissionError.message
+          : "Location permission denied. Please allow location access."
+      );
     }
   }, [getCurrentPosition]);
 
@@ -139,7 +192,7 @@ export function useCampusRadiusController() {
     locationModeRef.current = "demo";
     setCoords(DEMO_COORDS);
 
-    const savedProfile = localStorage.getItem(PROFILE_KEY);
+    const savedProfile = safeLocalStorageGet(PROFILE_KEY);
     if (savedProfile) {
       const parsed = JSON.parse(savedProfile) as { username: string; bio: string };
       setUsername(parsed.username || "");
@@ -158,7 +211,7 @@ export function useCampusRadiusController() {
       return;
     }
 
-    localStorage.setItem(
+    safeLocalStorageSet(
       PROFILE_KEY,
       JSON.stringify({ username: cleanUsername, bio: bio.trim() })
     );
@@ -204,6 +257,7 @@ export function useCampusRadiusController() {
     }
   }, [bio, chatInput, nearbyUsers, username]);
 
+  // ─── Auto-sync interval ───────────────────────────────────────────────
   useEffect(() => {
     if (!canSync) {
       if (intervalRef.current) {
@@ -216,9 +270,8 @@ export function useCampusRadiusController() {
     syncAndFetch(false);
 
     intervalRef.current = globalThis.setInterval(() => {
-      if (document.visibilityState === "visible") {
-        syncAndFetch(false);
-      }
+      // isTabVisible is guaranteed true here via canSync gate
+      syncAndFetch(false);
     }, UPDATE_INTERVAL_MS);
 
     return () => {

@@ -9,9 +9,10 @@
     "dev:legacy": "tsx server.ts",
     "build": "vite build",
     "build:web": "vite build",
+    "build:extension": "vite build --config vite.extension.config.ts",
     "preview": "vite preview",
     "preview:web": "vite preview",
-    "clean": "rm -rf dist",
+    "clean": "rm -rf dist extension/dist",
     "lint": "tsc --noEmit"
   },
   "dependencies": {

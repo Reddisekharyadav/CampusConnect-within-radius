@@ -1,6 +1,30 @@
+import { useEffect, useRef } from "react";
 import type { ChatMessage, Coordinates, NearbyUser } from "../types";
 
 const GOOGLE_MAPS_API_KEY = import.meta.env.VITE_GOOGLE_MAPS_API_KEY as string | undefined;
+
+// ─── Detect browser for permission guidance ────────────────────────────────
+function getBrowserName(): string {
+  const ua = navigator.userAgent;
+  if (/firefox/i.test(ua)) return "Firefox";
+  if (/edg\//i.test(ua)) return "Edge";
+  if (/opr\//i.test(ua)) return "Opera";
+  if (/safari/i.test(ua) && !/chrome/i.test(ua)) return "Safari";
+  if (/chrome/i.test(ua)) return "Chrome";
+  return "your browser";
+}
+
+function getBrowserLocationHint(): string {
+  const browser = getBrowserName();
+  const hints: Record<string, string> = {
+    Chrome: 'Click the lock icon 🔒 in the address bar → "Location" → Allow',
+    Firefox: 'Click the shield icon in the address bar → Permissions → Allow Location',
+    Safari: 'Go to Safari → Settings → Websites → Location → Allow',
+    Edge: 'Click the lock icon in the address bar → Permissions → Location → Allow',
+    Opera: 'Click the lock icon in the address bar → Location → Allow',
+  };
+  return hints[browser] ?? `Allow location access in ${browser} settings.`;
+}
 
 export function PermissionScreen({
   onContinue,
@@ -15,14 +39,22 @@ export function PermissionScreen({
     <main className="page">
       <section className="panel">
         <h1>CampusRadius</h1>
-        <p>We use your location only to show nearby users.</p>
+        <p>We use your location only to show nearby users. No history is stored.</p>
         <button className="primary" onClick={onContinue}>
-          Continue
+          Continue with my location
         </button>
-        <button className="secondary" onClick={onDemo}>
+        <button className="secondary" onClick={onDemo} style={{ marginTop: 10 }}>
           Use demo location for testing
         </button>
-        {permissionMessage ? <p className="error">{permissionMessage}</p> : null}
+        {permissionMessage ? (
+          <>
+            <p className="error">{permissionMessage}</p>
+            <div className="browserHint">
+              💡 <strong>How to enable in {getBrowserName()}:</strong>{" "}
+              {getBrowserLocationHint()}
+            </div>
+          </>
+        ) : null}
       </section>
     </main>
   );
@@ -43,6 +75,14 @@ export function ProfileScreen({
   onSave: () => void;
   error: string;
 }>) {
+  // Update document title on screen change
+  useEffect(() => {
+    document.title = "Profile Setup — CampusRadius";
+    return () => {
+      document.title = "CampusRadius — Nearby Campus Discovery";
+    };
+  }, []);
+
   return (
     <main className="page">
       <section className="panel">
@@ -50,9 +90,13 @@ export function ProfileScreen({
         <label htmlFor="username">Username</label>
         <input
           id="username"
+          type="text"
           value={username}
           onChange={(event) => setUsername(event.target.value)}
           placeholder="your name"
+          autoComplete="username"
+          autoCapitalize="none"
+          spellCheck={false}
         />
 
         <label htmlFor="bio">Bio</label>
@@ -64,7 +108,7 @@ export function ProfileScreen({
         />
 
         <button className="primary" onClick={onSave}>
-          Save
+          Save & Continue
         </button>
         {error ? <p className="error">{error}</p> : null}
       </section>
@@ -115,6 +159,29 @@ export function MainScreen({
   onRefresh: () => void;
   onSendChat: () => void;
 }>) {
+  // Auto-scroll chat log to bottom on new messages
+  const chatLogRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (chatLogRef.current) {
+      chatLogRef.current.scrollTop = chatLogRef.current.scrollHeight;
+    }
+  }, [chatMessages]);
+
+  // Update document title on main screen
+  useEffect(() => {
+    document.title = `CampusRadius — ${username || "Nearby"}`;
+  }, [username]);
+
+  // Handle Enter to send (Shift+Enter = newline) — works across all browsers
+  const handleChatKeyDown = (event: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if (event.key === "Enter" && !event.shiftKey) {
+      event.preventDefault();
+      if (!chatLoading && chatInput.trim()) {
+        onSendChat();
+      }
+    }
+  };
+
   return (
     <main className="page">
       <section className="panel wide">
@@ -124,22 +191,31 @@ export function MainScreen({
             <p className="muted">Nearby users, map view, and AI help in one place.</p>
           </div>
           <div className="actionRow">
-            <button className="secondary" onClick={() => setViewMode(viewMode === "list" ? "map" : "list")}>
-              {viewMode === "list" ? "Map view" : "List view"}
+            <button
+              className="secondary"
+              onClick={() => setViewMode(viewMode === "list" ? "map" : "list")}
+              aria-label={viewMode === "list" ? "Switch to map view" : "Switch to list view"}
+            >
+              {viewMode === "list" ? "🗺 Map" : "📋 List"}
             </button>
-            <button className="secondary" onClick={() => setChatOpen((current) => !current)}>
-              {chatOpen ? "Close AI" : "Ask AI"}
+            <button
+              className="secondary"
+              onClick={() => setChatOpen((current) => !current)}
+              aria-label={chatOpen ? "Close AI chat" : "Open AI chat"}
+              aria-expanded={chatOpen}
+            >
+              {chatOpen ? "✕ AI" : "🤖 AI"}
             </button>
-            <button className="secondary" onClick={onRefresh}>
-              {refreshing ? "Refreshing..." : "Refresh"}
+            <button className="secondary" onClick={onRefresh} disabled={refreshing}>
+              {refreshing ? "⟳ …" : "⟳ Refresh"}
             </button>
           </div>
         </div>
 
-        <p className="muted">Signed in as {username}</p>
+        <p className="muted">Signed in as <strong>{username}</strong></p>
         {coords ? (
           <p className="muted small">
-            Location: {coords.latitude.toFixed(5)}, {coords.longitude.toFixed(5)}
+            📍 {coords.latitude.toFixed(5)}, {coords.longitude.toFixed(5)}
           </p>
         ) : null}
 
@@ -154,7 +230,7 @@ export function MainScreen({
             />
           </label>
 
-          <label htmlFor="radius">Radius: {radius}m</label>
+          <label htmlFor="radius">Radius: <strong>{radius}m</strong></label>
           <input
             id="radius"
             type="range"
@@ -163,11 +239,14 @@ export function MainScreen({
             step={10}
             value={radius}
             onChange={(event) => setRadius(Number(event.target.value))}
+            aria-valuenow={radius}
+            aria-valuemin={10}
+            aria-valuemax={500}
           />
         </div>
 
-        {loading ? <p className="muted">Loading nearby users...</p> : null}
-        {error ? <p className="error">{error}</p> : null}
+        {loading ? <p className="muted">Loading nearby users…</p> : null}
+        {error ? <p className="error" role="alert">{error}</p> : null}
 
         {viewMode === "map" && coords ? (
           <div className="mapCard">
@@ -178,10 +257,11 @@ export function MainScreen({
                 loading="lazy"
                 referrerPolicy="no-referrer-when-downgrade"
                 src={`https://www.google.com/maps/embed/v1/view?key=${GOOGLE_MAPS_API_KEY}&center=${coords.latitude},${coords.longitude}&zoom=16&maptype=roadmap`}
+                sandbox="allow-scripts allow-same-origin"
               />
             ) : (
               <div className="mapPlaceholder">
-                Add VITE_GOOGLE_MAPS_API_KEY to show the embedded Google map.
+                Add <code>VITE_GOOGLE_MAPS_API_KEY</code> to show the embedded Google map.
               </div>
             )}
           </div>
@@ -191,9 +271,9 @@ export function MainScreen({
           <div className="chatPanel">
             <div className="chatHeader">
               <h2>Campus AI</h2>
-              <p className="muted small">Powered by OpenRouter free models</p>
+              <p className="muted small">Powered by OpenRouter</p>
             </div>
-            <div className="chatLog">
+            <div className="chatLog" ref={chatLogRef} role="log" aria-live="polite">
               {chatMessages.map((entry, index) => (
                 <div key={`${entry.role}-${index}`} className={`chatBubble ${entry.role}`}>
                   {entry.content}
@@ -203,10 +283,19 @@ export function MainScreen({
             <textarea
               value={chatInput}
               onChange={(event) => setChatInput(event.target.value)}
-              placeholder="Ask about nearby users, privacy, or how to use the app"
+              onKeyDown={handleChatKeyDown}
+              placeholder="Ask about nearby users… (Enter to send, Shift+Enter for newline)"
+              rows={3}
+              aria-label="Chat message"
+              disabled={chatLoading}
             />
-            <button className="primary" onClick={onSendChat} disabled={chatLoading}>
-              {chatLoading ? "Thinking..." : "Send"}
+            <button
+              className="primary"
+              onClick={onSendChat}
+              disabled={chatLoading || !chatInput.trim()}
+              aria-busy={chatLoading}
+            >
+              {chatLoading ? "Thinking…" : "Send"}
             </button>
           </div>
         ) : null}
@@ -215,7 +304,7 @@ export function MainScreen({
         {nearbyUsers.length === 0 ? (
           <p className="muted">No users nearby</p>
         ) : (
-          <ul className="userList">
+          <ul className="userList" aria-label="Nearby users">
             {nearbyUsers.map((user) => (
               <li key={user.username} className="userCard">
                 <div className="profileTopline">
@@ -239,12 +328,16 @@ export function MainScreen({
                 {user.instagram || user.facebook ? (
                   <div className="socialRow">
                     {user.instagram ? (
-                      <a href={`https://instagram.com/${user.instagram.replace(/^@/, "")}`} target="_blank" rel="noreferrer">
+                      <a
+                        href={`https://instagram.com/${user.instagram.replace(/^@/, "")}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                      >
                         Instagram {user.instagram}
                       </a>
                     ) : null}
                     {user.facebook ? (
-                      <a href={user.facebook} target="_blank" rel="noreferrer">
+                      <a href={user.facebook} target="_blank" rel="noopener noreferrer">
                         Facebook
                       </a>
                     ) : null}

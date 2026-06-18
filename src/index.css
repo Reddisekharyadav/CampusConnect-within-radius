@@ -1,7 +1,11 @@
 :root {
-	font-family: "Segoe UI", "Poppins", sans-serif;
+	/* Cross-browser system font stack — works on Windows, macOS, Linux */
+	font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Helvetica Neue",
+		Arial, "Noto Sans", sans-serif, "Apple Color Emoji", "Segoe UI Emoji";
 	color: #1e293b;
 	background: radial-gradient(circle at top, #dbe7ff, #edf2ff 40%, #f7f9ff 100%);
+	-webkit-font-smoothing: antialiased;
+	-moz-osx-font-smoothing: grayscale;
 }
 
 * {
@@ -53,23 +57,85 @@ button {
 	font: inherit;
 }
 
+/* Normalize inputs across all browsers */
 input[type="text"],
 textarea {
 	width: 100%;
 	border: 1px solid #d4def9;
 	border-radius: 10px;
 	padding: 10px 12px;
+	/* Safari / iOS normalize */
+	-webkit-appearance: none;
+	appearance: none;
+	outline-offset: 2px;
+	background-color: #fff;
+}
+
+input[type="text"]:focus,
+textarea:focus {
+	outline: 2px solid #2563eb;
+	border-color: #2563eb;
 }
 
 textarea {
 	min-height: 90px;
 	resize: vertical;
+	/* Firefox textarea has extra default styles */
+	font-family: inherit;
 }
 
+/* ─── Cross-browser range input ─────────────────────────────────── */
 input[type="range"] {
 	width: 100%;
+	-webkit-appearance: none;
+	appearance: none;
+	height: 6px;
+	border-radius: 999px;
+	background: #dbe7ff;
+	outline: none;
+	cursor: pointer;
+	padding: 0;
+	margin: 8px 0;
 }
 
+/* Chrome / Safari / Edge thumb */
+input[type="range"]::-webkit-slider-thumb {
+	-webkit-appearance: none;
+	appearance: none;
+	width: 18px;
+	height: 18px;
+	border-radius: 50%;
+	background: #2563eb;
+	cursor: pointer;
+	box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.2);
+	transition: box-shadow 0.15s;
+}
+input[type="range"]::-webkit-slider-thumb:hover {
+	box-shadow: 0 0 0 5px rgba(37, 99, 235, 0.25);
+}
+
+/* Firefox thumb */
+input[type="range"]::-moz-range-thumb {
+	width: 18px;
+	height: 18px;
+	border-radius: 50%;
+	background: #2563eb;
+	cursor: pointer;
+	border: none;
+	box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.2);
+}
+input[type="range"]::-moz-range-thumb:hover {
+	box-shadow: 0 0 0 5px rgba(37, 99, 235, 0.25);
+}
+
+/* Firefox track */
+input[type="range"]::-moz-range-track {
+	height: 6px;
+	border-radius: 999px;
+	background: #dbe7ff;
+}
+
+/* ─── Buttons ────────────────────────────────────────────────────── */
 .primary,
 .secondary {
 	border: none;
@@ -77,6 +143,18 @@ input[type="range"] {
 	padding: 10px 14px;
 	cursor: pointer;
 	font-weight: 700;
+	transition: opacity 0.15s, transform 0.1s;
+	-webkit-tap-highlight-color: transparent;
+}
+
+.primary:active,
+.secondary:active {
+	transform: scale(0.97);
+}
+
+.primary:disabled {
+	opacity: 0.55;
+	cursor: not-allowed;
 }
 
 .primary {
@@ -85,11 +163,20 @@ input[type="range"] {
 	margin-top: 14px;
 }
 
+.primary:hover:not(:disabled) {
+	background: #1d4ed8;
+}
+
 .secondary {
 	background: #dbe7ff;
 	color: #1e3a8a;
 }
 
+.secondary:hover {
+	background: #c7d9ff;
+}
+
+/* ─── Layout ─────────────────────────────────────────────────────── */
 .row {
 	display: flex;
 	justify-content: space-between;
@@ -111,6 +198,14 @@ input[type="range"] {
 	margin-top: 0;
 }
 
+/* Cross-browser checkbox toggle */
+.switchRow input[type="checkbox"] {
+	width: 20px;
+	height: 20px;
+	cursor: pointer;
+	accent-color: #2563eb;
+}
+
 .controls {
 	margin-top: 14px;
 	padding: 14px;
@@ -119,6 +214,7 @@ input[type="range"] {
 	background: #f8faff;
 }
 
+/* ─── Map & Chat ─────────────────────────────────────────────────── */
 .mapCard,
 .chatPanel {
 	margin-top: 14px;
@@ -160,6 +256,9 @@ input[type="range"] {
 	gap: 10px;
 	max-height: 260px;
 	overflow: auto;
+	/* Smooth scroll in all browsers */
+	scroll-behavior: smooth;
+	-webkit-overflow-scrolling: touch;
 	margin: 12px 0;
 }
 
@@ -169,6 +268,7 @@ input[type="range"] {
 	border-radius: 14px;
 	line-height: 1.45;
 	white-space: pre-wrap;
+	word-break: break-word;
 }
 
 .chatBubble.user {
@@ -183,6 +283,7 @@ input[type="range"] {
 	color: #1e293b;
 }
 
+/* ─── User Cards ─────────────────────────────────────────────────── */
 .userList {
 	list-style: none;
 	margin: 0;
@@ -196,6 +297,11 @@ input[type="range"] {
 	border-radius: 12px;
 	padding: 12px;
 	background: #ffffff;
+	transition: box-shadow 0.15s;
+}
+
+.userCard:hover {
+	box-shadow: 0 4px 14px rgba(37, 99, 235, 0.1);
 }
 
 .userCard p {
@@ -250,6 +356,7 @@ input[type="range"] {
 	text-decoration: underline;
 }
 
+/* ─── Typography helpers ─────────────────────────────────────────── */
 .muted {
 	color: #64748b;
 	margin: 4px 0;
@@ -264,6 +371,19 @@ input[type="range"] {
 	margin-top: 10px;
 }
 
+/* ─── Browser hint in permission screen ─────────────────────────── */
+.browserHint {
+	margin-top: 12px;
+	padding: 10px 14px;
+	border-radius: 10px;
+	background: #fffbeb;
+	border: 1px solid #fde68a;
+	color: #92400e;
+	font-size: 13px;
+	line-height: 1.5;
+}
+
+/* ─── Responsive ─────────────────────────────────────────────────── */
 @media (max-width: 640px) {
 	.panel {
 		padding: 18px;
@@ -281,5 +401,30 @@ input[type="range"] {
 
 	.secondary {
 		width: 100%;
+	}
+}
+
+/* ─── Extension popup mode (≤420px width) ───────────────────────── */
+@media (max-width: 420px) {
+	.page {
+		padding: 0;
+		align-items: flex-start;
+	}
+
+	.panel,
+	.panel.wide {
+		width: 100%;
+		border-radius: 0;
+		min-height: 100vh;
+		box-shadow: none;
+		padding: 16px;
+	}
+
+	.chatLog {
+		max-height: 180px;
+	}
+
+	.mapFrame {
+		height: 220px;
 	}
 }
