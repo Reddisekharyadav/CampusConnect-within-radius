@@ -18,6 +18,8 @@ export default function App() {
     return (
       <ProfileScreen
         username={campus.username}
+        password={campus.password}
+        setPassword={campus.setPassword}
         bio={campus.bio}
         setUsername={campus.setUsername}
         setBio={campus.setBio}
@@ -30,6 +32,9 @@ export default function App() {
   return (
     <MainScreen
       username={campus.username}
+      locationMode={campus.locationMode}
+      onEditProfile={campus.editProfile}
+      onSignOut={campus.signOut}
       isVisible={campus.isVisible}
       setIsVisible={campus.setIsVisible}
       radius={campus.radius}
@@ -48,7 +53,24 @@ export default function App() {
       setChatInput={campus.setChatInput}
       chatLoading={campus.chatLoading}
       onRefresh={() => campus.syncAndFetch(true)}
+      onBlockUser={campus.onBlockUser}
+      onReportUser={campus.onReportUser}
       onSendChat={campus.sendChat}
+      blocks={campus.blocks}
+      myReports={campus.myReports}
+      waves={campus.waves}
+      matches={campus.matches}
+      peerMessages={campus.peerMessages}
+      selectedMatch={campus.selectedMatch}
+      peerInput={campus.peerInput}
+      setPeerInput={campus.setPeerInput}
+      onWaveUser={campus.onWaveUser}
+      onAcceptWave={campus.onAcceptWave}
+      onDeclineWave={campus.onDeclineWave}
+      onUnblockUser={campus.onUnblockUser}
+      onSelectMatch={campus.onSelectMatch}
+      onSendPeerMessage={campus.onSendPeerMessage}
+      onDeleteAccount={campus.deleteMyAccount}
     />
   );
 }
