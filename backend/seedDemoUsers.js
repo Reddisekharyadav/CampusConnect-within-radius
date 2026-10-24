@@ -63,15 +63,23 @@ const toUserDocument = (user) => ({
   course: user.course,
   interests: user.interests,
   isVisible: true,
+  isDemo: true,
   radius: 500,
   location: {
     type: "Point",
     coordinates: [user.longitude, user.latitude]
   },
-  lastActive: new Date(Date.now() + 60 * 60 * 1000)
+  // Previously +1 hour, which kept demo users visible for an hour after seeding.
+  lastActive: new Date()
 });
 
 async function seedDemoUsers() {
+  if (process.env.ALLOW_DEMO_SEED !== "1") {
+    throw new Error("Refusing to seed demo users: set ALLOW_DEMO_SEED=1. Never run this against a production database without checking MONGODB_URI first.");
+  }
+  if (process.env.NODE_ENV === "production" && process.env.ALLOW_DEMO_SEED_PRODUCTION !== "1") {
+    throw new Error("Refusing to seed demo users in production without ALLOW_DEMO_SEED_PRODUCTION=1.");
+  }
   if (!process.env.MONGODB_URI) {
     throw new Error("MONGODB_URI is missing. Add it to .env before seeding demo users.");
   }
