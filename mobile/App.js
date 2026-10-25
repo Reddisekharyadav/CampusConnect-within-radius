@@ -20,7 +20,26 @@ import Slider from "@react-native-community/slider";
 import * as Location from "expo-location";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { StatusBar } from "expo-status-bar";
-import { fetchNearbyUsers, sendChatMessage, updateLocation, BASE_URL } from "./src/services/api";
+import {
+  acceptWave,
+  blockUser,
+  clearSessionToken,
+  declineWave,
+  deleteAccount,
+  fetchNearbyUsers,
+  getSessionToken,
+  getWaves,
+  loginAccount,
+  logoutAccount,
+  registerAccount,
+  reportUser,
+  sendChatMessage,
+  sendWave,
+  setSessionToken,
+  snapCoordinate,
+  updateLocation,
+  BASE_URL
+} from "./src/services/api";
 
 const PROFILE_KEY = "campusradius_profile";
 const LOCATION_TICK_MS = 15000;
@@ -33,6 +52,11 @@ export default function App() {
   const [permissionState, setPermissionState] = useState("checking");
   const [screen, setScreen] = useState("permission");
   const [profile, setProfile] = useState({ username: "", bio: "" });
+  const [password, setPassword] = useState("");
+  const [reportTarget, setReportTarget] = useState(null);
+  const [reportReason, setReportReason] = useState("");
+  const [waves, setWaves] = useState([]);
+  const [wavesOpen, setWavesOpen] = useState(false);
   const [isVisible, setIsVisible] = useState(false);
   const [radius, setRadius] = useState(100);
   const [nearbyUsers, setNearbyUsers] = useState([]);
@@ -60,8 +84,11 @@ export default function App() {
 
   const loadSavedProfile = useCallback(async () => {
     try {
+      // No session token means the protected endpoints will 401, so a
+      // saved username alone is not enough to enter the main screen.
+      const token = await getSessionToken();
       const saved = await AsyncStorage.getItem(PROFILE_KEY);
-      if (!saved) {
+      if (!saved || !token) {
         setScreen("profile");
         return;
       }
@@ -113,7 +140,12 @@ export default function App() {
 
         setErrorMessage("");
 
-        const coords = await getCurrentCoords();
+        const rawCoords = await getCurrentCoords();
+        // Client-side blur: snap to the ~100 m grid BEFORE upload.
+        const coords = {
+          latitude: snapCoordinate(rawCoords.latitude),
+          longitude: snapCoordinate(rawCoords.longitude)
+        };
 
         await updateLocation({
           username: profile.username.trim(),
@@ -133,6 +165,14 @@ export default function App() {
 
         setNearbyUsers(Array.isArray(users) ? users : []);
       } catch (error) {
+        // A 401 means the session expired or was cleared server-side:
+        // drop back to sign-in instead of retrying unauthenticated calls.
+        if (error?.response?.status === 401) {
+          await clearSessionToken();
+          setScreen("profile");
+          setErrorMessage("Your session expired. Please sign in again.");
+          return;
+        }
         setErrorMessage(
           error?.response?.data?.error ||
             "Unable to reach server. Check network and API URL."
@@ -202,9 +242,16 @@ export default function App() {
     await loadSavedProfile();
   }, [loadSavedProfile]);
 
+  // Sign-in: register a new username, or log in when it already exists
+  // (409). The session token — never the password — is stored for later
+  // calls, and sent as Authorization: Bearer by the API interceptor.
   const saveProfile = useCallback(async () => {
     if (!profile.username.trim()) {
       Alert.alert("Username required", "Please enter a username to continue.");
+      return;
+    }
+    if (password.length < 8) {
+      Alert.alert("Password required", "Choose a password of at least 8 characters.");
       return;
     }
 
@@ -213,14 +260,122 @@ export default function App() {
         username: profile.username.trim(),
         bio: profile.bio.trim()
       };
+      let auth;
+      try {
+        auth = await registerAccount(cleanProfile.username, password, cleanProfile.bio);
+      } catch (registerError) {
+        if (registerError?.response?.status === 409) {
+          auth = await loginAccount(cleanProfile.username, password);
+        } else {
+          throw registerError;
+        }
+      }
+      await setSessionToken(auth.token);
       await AsyncStorage.setItem(PROFILE_KEY, JSON.stringify(cleanProfile));
       setProfile(cleanProfile);
+      setPassword("");
       setScreen("main");
     } catch (error) {
-      console.warn("Failed to save profile", error);
-      Alert.alert("Save failed", "Could not save profile locally.");
+      console.warn("Sign-in failed", error);
+      Alert.alert(
+        "Sign-in failed",
+        error?.response?.data?.error || "Could not sign in. Check the API URL and try again."
+      );
     }
-  }, [profile]);
+  }, [profile, password]);
+
+  const signOut = useCallback(async () => {
+    try { await logoutAccount(); } catch { /* local cleanup still runs */ }
+    try { await AsyncStorage.removeItem(PROFILE_KEY); } catch { /* ignore */ }
+    setProfile({ username: "", bio: "" });
+    setPassword("");
+    setNearbyUsers([]);
+    setScreen("permission");
+  }, []);
+
+  const deleteMyAccount = useCallback(() => {
+    Alert.alert(
+      "Delete account?",
+      "This permanently removes your profile, location, blocks, waves, messages, and reports.",
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Delete",
+          style: "destructive",
+          onPress: async () => {
+            try {
+              await deleteAccount();
+            } catch (error) {
+              Alert.alert("Delete failed", error?.response?.data?.error || "Could not delete your account.");
+              return;
+            }
+            try { await AsyncStorage.removeItem(PROFILE_KEY); } catch { /* ignore */ }
+            setProfile({ username: "", bio: "" });
+            setPassword("");
+            setNearbyUsers([]);
+            setScreen("permission");
+          }
+        }
+      ]
+    );
+  }, []);
+
+  const handleBlockUser = useCallback(async (targetUsername) => {
+    try {
+      await blockUser(targetUsername);
+      setNearbyUsers((current) => current.filter((u) => u.username !== targetUsername));
+    } catch (error) {
+      Alert.alert("Block failed", error?.response?.data?.error || "Could not block that user.");
+    }
+  }, []);
+
+  const submitReport = useCallback(async () => {
+    if (!reportTarget || reportReason.trim().length < 10) {
+      Alert.alert("Report needs a reason", "Please explain in at least 10 characters.");
+      return;
+    }
+    try {
+      await reportUser(reportTarget, reportReason.trim());
+      setReportTarget(null);
+      setReportReason("");
+      Alert.alert("Reported", "Your report was submitted privately. It is never published.");
+    } catch (error) {
+      Alert.alert("Report failed", error?.response?.data?.error || "Could not submit the report.");
+    }
+  }, [reportTarget, reportReason]);
+
+  const handleWaveUser = useCallback(async (targetUsername) => {
+    try {
+      await sendWave(targetUsername);
+      Alert.alert("Wave sent", `You waved at @${targetUsername}. They must accept before you can message each other.`);
+    } catch (error) {
+      Alert.alert("Wave failed", error?.response?.data?.error || "Could not send that wave.");
+    }
+  }, []);
+
+  const openWaves = useCallback(async () => {
+    try {
+      const data = await getWaves();
+      setWaves(Array.isArray(data) ? data : (data?.waves || []));
+    } catch {
+      setWaves([]);
+    }
+    setWavesOpen(true);
+  }, []);
+
+  const handleWaveDecision = useCallback(async (fromUsername, accept) => {
+    try {
+      if (accept) {
+        await acceptWave(fromUsername);
+        Alert.alert("Matched", `You matched with @${fromUsername}. You can now message each other.`);
+      } else {
+        await declineWave(fromUsername);
+      }
+      setWaves((current) => current.filter((w) => !(w.fromUsername === fromUsername && w.status === "pending")));
+    } catch (error) {
+      Alert.alert("Wave failed", error?.response?.data?.error || "Could not update that wave.");
+    }
+  }, []);
 
   useEffect(() => {
     const subscription = AppState.addEventListener("change", setAppState);
@@ -296,6 +451,18 @@ export default function App() {
         autoCapitalize="none"
       />
       <TextInput
+        placeholder="Password (at least 8 characters)"
+        style={styles.input}
+        value={password}
+        onChangeText={setPassword}
+        secureTextEntry
+        autoCapitalize="none"
+      />
+      <Text style={styles.subtitle}>
+        New username? This creates your account. Existing username? This password signs you in.
+        Passwords are hashed on the server and never stored on this phone.
+      </Text>
+      <TextInput
         placeholder="Bio"
         style={[styles.input, styles.bioInput]}
         value={profile.bio}
@@ -328,6 +495,20 @@ export default function App() {
           ))}
         </View>
       ) : null}
+      <View style={styles.socialRow}>
+        <TouchableOpacity style={styles.socialButton} onPress={() => handleWaveUser(item.username)}>
+          <Text style={styles.socialText}>👋 Wave</Text>
+        </TouchableOpacity>
+        <TouchableOpacity style={styles.socialButton} onPress={() => handleBlockUser(item.username)}>
+          <Text style={styles.socialText}>Block</Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={styles.socialButton}
+          onPress={() => { setReportTarget(item.username); setReportReason(""); }}
+        >
+          <Text style={styles.socialText}>Report</Text>
+        </TouchableOpacity>
+      </View>
       {item.instagram || item.facebook ? (
         <View style={styles.socialRow}>
           {item.instagram ? (
@@ -379,6 +560,18 @@ export default function App() {
           <Text style={styles.secondaryButtonText}>Ask AI</Text>
         </TouchableOpacity>
 
+        <TouchableOpacity style={styles.secondaryButton} onPress={openWaves}>
+          <Text style={styles.secondaryButtonText}>Waves waiting for you</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity style={styles.secondaryButton} onPress={signOut}>
+          <Text style={styles.secondaryButtonText}>Sign out</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity style={styles.secondaryButton} onPress={deleteMyAccount}>
+          <Text style={styles.secondaryButtonText}>Delete account</Text>
+        </TouchableOpacity>
+
         {currentLocation ? (
           <Text style={styles.locationText}>
             {locationMode === "demo" ? "Demo" : "You"}: {currentLocation.latitude.toFixed(5)}, {currentLocation.longitude.toFixed(5)}
@@ -416,7 +609,7 @@ export default function App() {
             <ScrollView style={styles.chatLog} contentContainerStyle={styles.chatLogContent}>
               {chatMessages.map((entry, index) => (
                 <View key={`${entry.role}-${index}`} style={entry.role === "user" ? styles.userBubble : styles.assistantBubble}>
-                  <Text style={styles.chatText}>{entry.content}</Text>
+                  <Text style={entry.role === "user" ? styles.userChatText : styles.chatText}>{entry.content}</Text>
                 </View>
               ))}
             </ScrollView>
@@ -431,6 +624,60 @@ export default function App() {
             <TouchableOpacity style={styles.primaryButton} onPress={sendChat} disabled={chatLoading}>
               <Text style={styles.primaryButtonText}>{chatLoading ? "Thinking..." : "Send"}</Text>
             </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
+      <Modal visible={reportTarget !== null} animationType="slide" transparent>
+        <View style={styles.modalBackdrop}>
+          <View style={styles.modalCard}>
+            <Text style={styles.title}>Report @{reportTarget}</Text>
+            <Text style={styles.subtitle}>Reports are private and never published. At least 10 characters.</Text>
+            <TextInput
+              style={[styles.input, styles.chatInput]}
+              value={reportReason}
+              onChangeText={setReportReason}
+              placeholder="Why are you reporting this user?"
+              multiline
+            />
+            <TouchableOpacity style={styles.primaryButton} onPress={submitReport}>
+              <Text style={styles.primaryButtonText}>Submit report</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.secondaryButton} onPress={() => { setReportTarget(null); setReportReason(""); }}>
+              <Text style={styles.secondaryButtonText}>Cancel</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
+      <Modal visible={wavesOpen} animationType="slide" transparent>
+        <View style={styles.modalBackdrop}>
+          <View style={styles.modalCard}>
+            <View style={styles.rowBetween}>
+              <Text style={styles.title}>Waves</Text>
+              <TouchableOpacity onPress={() => setWavesOpen(false)}>
+                <Text style={styles.closeText}>Close</Text>
+              </TouchableOpacity>
+            </View>
+            {waves.filter((w) => w.toUsername === profile.username && w.status === "pending").length === 0 ? (
+              <Text style={styles.subtitle}>No incoming waves right now.</Text>
+            ) : (
+              waves
+                .filter((w) => w.toUsername === profile.username && w.status === "pending")
+                .map((w) => (
+                  <View key={w.fromUsername} style={styles.userCard}>
+                    <Text style={styles.userName}>@{w.fromUsername} waved at you.</Text>
+                    <View style={styles.socialRow}>
+                      <TouchableOpacity style={styles.socialButton} onPress={() => handleWaveDecision(w.fromUsername, true)}>
+                        <Text style={styles.socialText}>Accept — match</Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity style={styles.socialButton} onPress={() => handleWaveDecision(w.fromUsername, false)}>
+                        <Text style={styles.socialText}>Decline</Text>
+                      </TouchableOpacity>
+                    </View>
+                  </View>
+                ))
+            )}
           </View>
         </View>
       </Modal>
@@ -678,6 +925,9 @@ const styles = StyleSheet.create({
   },
   chatText: {
     color: "#0f172a"
+  },
+  userChatText: {
+    color: "#ffffff"
   },
   chatInput: {
     minHeight: 80,

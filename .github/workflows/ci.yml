@@ -1,0 +1,21 @@
+name: CI
+on:
+  push:
+    branches: [main, campusconnect-improvements]
+  pull_request:
+jobs:
+  test-and-build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Backend tests
+        working-directory: backend
+        run: npm test
+      - name: Web typecheck and build
+        run: |
+          npm ci
+          npm run lint
+          npm run build
